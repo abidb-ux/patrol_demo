@@ -1,0 +1,51 @@
+name: Patrol Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  patrol-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install Patrol CLI
+        run: dart pub global activate patrol_cli
+
+      - name: Run Patrol test
+        run: |
+          patrol test -t integration_test/login_test.dart \
+            --verbose \
+            --no-uninstall \
+            --output test_output.json
+
+      - name: Convert Patrol JSON to JUnit XML
+        run: |
+          dart run junitreport:tojunit \
+            --input test_output.json \
+            --output test_output.xml
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: patrol-test-report
+          path: test_output.xml
+
+      - name: Publish test summary
+        uses: dorny/test-reporter@v1
+        with:
+          name: Patrol Test Results
+          path: test_output.xml
+          reporter: java-junit
